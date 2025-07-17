@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Travel Safety Zones</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+  <style>
+    body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #f0f0f0; }
+    header {
+      background: linear-gradient(to right, #4b6cb7, #182848);
+      color: #fff;
+      padding: 1em;
+      text-align: center;
+      font-size: 1.5em;
+    }
+    .controls {
+      padding: 1em; background-color: #fff; display: flex;
+      gap: 0.5em; align-items: center; justify-content: center;
+    }
+    input, button {
+      padding: 0.5em; font-size: 1em;
+      border-radius: 4px; border: 1px solid #ccc;
+    }
+    button {
+      background-color: #4b6cb7; color: white; border: none;
+      cursor: pointer; transition: background 0.3s, transform 0.2s;
+    }
+    button:hover { background-color: #3e58a1; transform: scale(1.05); }
+    #map { height: 80vh; }
+    .leaflet-popup-content form {
+      display: flex; flex-direction: column;
+    }
+    .leaflet-popup-content input {
+      padding: 0.3em; margin-top: 0.3em;
+    }
+  </style>
+</head>
+<body>
+  <header>🛣️ Travel Safety Zones - Smart Route Planner</header>
+  <div class="controls">
+    <input type="text" id="start" placeholder="Start Location" />
+    <input type="text" id="end" placeholder="Destination" />
+    <button id="planRoute">Plan Route</button>
+  </div>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+  <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
+
+  <script>
+    const map = L.map('map').setView([28.6139, 77.2090], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    const drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
+    const zones = [];
+
+    const drawControl = new L.Control.Draw({
+      edit: { featureGroup: drawnItems },
+      draw: false
+    });
+    map.addControl(drawControl);
+
+    function loadFakeZones() {
+      const redZone = {
+        type: 'Feature',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [[
+            [77.216, 28.630],
+            [77.225, 28.630],
+            [77.225, 28.620],
+            [77.216, 28.620],
+            [77.216, 28.630]
+          ]]
+        }
+      };
+      const layer = L.geoJSON(redZone, {
+        style: { color: 'red', fillOpacity: 0.3 }
+      }).addTo(drawnItems);
+      zones.push({ layer, type: 'red' });
+    }
+
+    loadFakeZones();
+
+    async function geocode(query) {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      return data.length > 0 ? { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) } : null;
+    }
+
+    document.getElementById('planRoute').addEventListener('click', async () => {
+      const start = document.getElementById('start').value;
+      const end = document.getElementById('end').value;
+      if (!start || !end) return alert("Please enter both start and destination.");
+
+      const [startCoords, endCoords] = await Promise.all([geocode(start), geocode(end)]);
+      if (!startCoords || !endCoords) return alert("Could not find one or both locations.");
+
+      if (window.routeControl) map.removeControl(window.routeControl);
+
+      window.routeControl = L.Routing.control({
+        waypoints: [L.latLng(startCoords.lat, startCoords.lon), L.latLng(endCoords.lat, endCoords.lon)],
+        createMarker: () => null,
+        routeWhileDragging: false
+      }).addTo(map);
+
+      window.routeControl.on('routesfound', function (e) {
+        const routeCoords = e.routes[0].coordinates;
+        const routeLine = L.polyline(routeCoords, { color: '#0078ff' }).addTo(map);
+
+        const carIcon = L.icon({
+          iconUrl: './car.png',
+          iconSize: [40, 40],
+          iconAnchor: [20, 20]
+        });
+
+        const carMarker = L.marker(routeCoords[0], { icon: carIcon }).addTo(map);
+        let i = 0, redShown = false, yellowShown = false;
+
+        function moveCar() {
+          if (i >= routeCoords.length - 1) return;
+          carMarker.setLatLng(routeCoords[i]);
+
+          const segment = L.polyline([routeCoords[i], routeCoords[i + 1]]);
+          zones.forEach(zone => {
+            const zoneGeo = zone.layer.toGeoJSON();
+            const segmentGeo = segment.toGeoJSON();
+            const intersects = turf.booleanIntersects(zoneGeo, segmentGeo);
+
+            if (intersects) {
+              if (zone.type === 'red' && !redShown) {
+                redShown = true;
+                const popupForm = `
+                  <form id="redZoneForm">
+                    <label>Passengers:</label>
+                    <input type="number" id="passengers" required>
+                    <label>Car Details:</label>
+                    <input type="text" id="carDetails" required>
+                    <button type="submit">Submit</button>
+                  </form>
+                `;
+                L.popup()
+                  .setLatLng(routeCoords[i])
+                  .setContent(popupForm)
+                  .openOn(map);
+
+                document.getElementById('redZoneForm').addEventListener('submit', function (e) {
+                  e.preventDefault();
+                  const passengers = document.getElementById('passengers').value;
+                  const carDetails = document.getElementById('carDetails').value;
+                  alert(`✅ Details Submitted:\n👥 Passengers: ${passengers}\n🚗 Car: ${carDetails}`);
+                  map.closePopup();
+                });
+              }
+              if (zone.type === 'yellow' && !yellowShown && !redShown) {
+                yellowShown = true;
+                alert("⚠️ Caution: Your car is entering a Yellow Zone!");
+              }
+            }
+          });
+
+          i++;
+          setTimeout(moveCar, 150);
+        }
+
+        moveCar();
+      });
+    });
+  </script>
+</body>
+</html>
