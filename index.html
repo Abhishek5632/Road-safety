@@ -2,117 +2,124 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Smart Route Planner - Road Safety</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Route Planner</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
   <style>
     body {
       margin: 0;
       font-family: 'Poppins', sans-serif;
-      background: linear-gradient(to bottom right, #f8faff, #dbefff);
+      background: linear-gradient(to bottom right, #f0f8ff, #dff1fc);
       color: #333;
     }
+
+    nav {
+      background: #1c1e26;
+      color: white;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+
+    nav h1 {
+      margin: 0;
+      font-size: 1.4rem;
+    }
+
+    nav ul {
+      display: flex;
+      list-style: none;
+      gap: 1.5rem;
+      margin: 0;
+      padding: 0;
+    }
+
+    nav ul li a {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    nav ul li a:hover {
+      text-decoration: underline;
+    }
+
     header {
-      background: linear-gradient(to right, #1c1e26, #3498db);
-      color: #fff;
-      padding: 2rem 1rem;
       text-align: center;
+      padding: 3rem 1rem 2rem;
       font-size: 2.5rem;
       font-weight: 800;
-      animation: fadeInDown 1.2s ease-out;
-      letter-spacing: 1px;
+      color: #1c1e26;
     }
-    @keyframes fadeInDown {
-      from { opacity: 0; transform: translateY(-20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .section {
-      padding: 4rem 1rem;
+
+    section {
+      padding: 3rem 1rem;
       max-width: 1200px;
       margin: auto;
-      animation: fadeIn 1.2s ease-in;
     }
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-    .section h2 {
-      text-align: center;
-      font-size: 2rem;
-      color: #2c3e50;
-      margin-bottom: 2rem;
-    }
-    .zones {
+
+    .zones, .features {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
       gap: 2rem;
     }
-    .zone {
+
+    .zone, .feature {
       background: #fff;
       border-radius: 14px;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.1);
       padding: 2rem;
-      transition: transform 0.4s, box-shadow 0.3s;
-      position: relative;
-      overflow: hidden;
+      box-shadow: 0 6px 12px rgba(0,0,0,0.1);
     }
-    .zone:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-    }
+
     .zone.red { border-left: 6px solid red; }
     .zone.yellow { border-left: 6px solid orange; }
     .zone.green { border-left: 6px solid green; }
-    .zone h3 {
-      font-size: 1.4rem;
-      margin-bottom: 0.8rem;
+
+    .feature h3 { color: #007bff; }
+    .feature a {
+      display: inline-block;
+      margin-top: 1rem;
+      color: #007bff;
+      text-decoration: none;
+      font-weight: bold;
     }
-    .zone p {
-      color: #555;
-      line-height: 1.6;
+
+    .feature a:hover {
+      text-decoration: underline;
     }
-    .features {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 2rem;
+
+    #map {
+      height: 400px;
+      width: 100%;
+      border-radius: 12px;
+      margin-top: 2rem;
     }
-    .feature {
-      background: #fff;
-      padding: 2rem;
-      border-radius: 14px;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.1);
-      transition: all 0.3s ease-in-out;
-    }
-    .feature:hover {
-      transform: scale(1.03);
-      background-color: #f9fbff;
-    }
-    .feature h3 {
-      color: #0078ff;
-      font-size: 1.3rem;
-      margin-bottom: 0.7rem;
-    }
+
     .cta {
       text-align: center;
-      margin: 5rem 0 3rem;
+      margin: 4rem 0 2rem;
     }
+
     .cta a {
-      display: inline-block;
-      padding: 1.2rem 2.5rem;
+      padding: 1rem 2rem;
       background: #3498db;
       color: white;
-      font-weight: bold;
-      text-decoration: none;
       border-radius: 10px;
-      font-size: 1.3rem;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.2);
-      transition: all 0.3s;
+      text-decoration: none;
+      font-size: 1.2rem;
+      font-weight: bold;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.15);
     }
+
     .cta a:hover {
-      background: #1c75bc;
-      transform: scale(1.05);
+      background: #0070c0;
     }
+
     footer {
       text-align: center;
       padding: 1.5rem;
@@ -123,56 +130,108 @@
   </style>
 </head>
 <body>
+
+  <nav>
+    <h1>Smart Route</h1>
+    <ul>
+      <li><a href="index.html">Home</a></li>
+      <li><a href="img.html">Plan Route</a></li>
+      <li><a href="alerts.html">Alerts</a></li>
+      <li><a href="awareness.html">Awareness</a></li>
+      <li><a href="technology.html">Tech</a></li>
+    </ul>
+  </nav>
+
   <header>
     🚦 Smart Route Planner for Road Safety
   </header>
 
-  <section class="section">
-    <h2>Know Your Zones</h2>
+  <section>
+    <h2>Zone Types</h2>
     <div class="zones">
       <div class="zone red">
         <h3>🔴 Red Zone</h3>
-        <p>High-crime zones. Entry prompts a passenger and vehicle info form for safety and monitoring purposes.</p>
+        <p>High-crime areas. Form pops up when you enter this zone for safety data collection.</p>
       </div>
       <div class="zone yellow">
         <h3>🟠 Yellow Zone</h3>
-        <p>Moderate-risk zones. Drivers receive a real-time warning to stay alert and reduce speed.</p>
+        <p>Moderate-risk. Driver receives a real-time caution alert while inside this area.</p>
       </div>
       <div class="zone green">
         <h3>🟢 Green Zone</h3>
-        <p>Safe areas for unhindered travel. No form or alert required, ensuring smooth navigation.</p>
+        <p>Safe and secure region. No interruptions or alerts — smooth travel experience.</p>
       </div>
     </div>
   </section>
 
-  <section class="section">
-    <h2>Why Choose Our Platform?</h2>
+  <section>
+    <h2>Explore the Safety Map</h2>
+    <div id="map"></div>
+  </section>
+
+  <section>
+    <h2>Core Features</h2>
     <div class="features">
       <div class="feature">
-        <h3>📍 Real-Time Smart Routing</h3>
-        <p>Dynamic route suggestions based on your destination and known risk areas, powered by zone intelligence.</p>
+        <h3>📍 Smart Routing</h3>
+        <p>Automatically chooses safest path avoiding red zones.</p>
+        <a href="smart-routing.html">See how →</a>
       </div>
       <div class="feature">
-        <h3>⚠️ Instant Alert System</h3>
-        <p>Get notified with in-map alerts and forms when entering high-risk zones to stay ahead of danger.</p>
+        <h3>⚠️ Alerts</h3>
+        <p>Detects zone entry and notifies drivers instantly.</p>
+        <a href="alerts.html">See how →</a>
       </div>
       <div class="feature">
-        <h3>🎓 Road Safety Awareness</h3>
-        <p>Built to educate users about safety protocols while traveling through unsafe neighborhoods.</p>
+        <h3>🎓 Awareness</h3>
+        <p>Educates travelers about safety and risky regions.</p>
+        <a href="awareness.html">Learn more →</a>
       </div>
       <div class="feature">
-        <h3>🧠 Smart for Everyone</h3>
-        <p>Clean, modern UI that's friendly for all users — students, families, tourists, and professionals alike.</p>
+        <h3>🧠 Technology</h3>
+        <p>Powered by Leaflet.js, GeoJSON, and smart zone logic.</p>
+        <a href="technology.html">Explore tech →</a>
       </div>
     </div>
   </section>
 
   <section class="cta">
-    <a href="img.html">🧭 Plan Your Safe Route Now</a>
+    <a href="img.html">🚗 Start Planning Your Route</a>
   </section>
 
   <footer>
-    &copy; 2025 Smart Route Planner | Empowering Safer Journeys for All
+    &copy; 2025 Smart Route Planner | Stay Safe, Stay Informed
   </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([28.6139, 77.2090], 12); // Delhi
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+    }).addTo(map);
+
+    const redZone = L.circle([28.62, 77.2], {
+      color: 'red',
+      fillColor: '#f03',
+      fillOpacity: 0.5,
+      radius: 1000
+    }).addTo(map).bindPopup("🔴 High Risk Zone");
+
+    const yellowZone = L.circle([28.60, 77.21], {
+      color: 'orange',
+      fillColor: 'orange',
+      fillOpacity: 0.4,
+      radius: 800
+    }).addTo(map).bindPopup("🟠 Moderate Risk Zone");
+
+    const greenZone = L.circle([28.58, 77.19], {
+      color: 'green',
+      fillColor: 'green',
+      fillOpacity: 0.3,
+      radius: 1000
+    }).addTo(map).bindPopup("🟢 Safe Zone");
+  </script>
+
 </body>
 </html>
