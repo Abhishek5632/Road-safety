@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Smart Route Planner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; }
+
+    header {
+      background: #141e30;
+      color: #fff;
+      padding: 1.5rem;
+      text-align: center;
+      font-size: 2rem;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    section.about {
+      padding: 2rem;
+      text-align: center;
+      background: #f4f4f4;
+    }
+
+    section.about h2 {
+      margin-bottom: 1rem;
+      font-size: 1.8rem;
+      color: #333;
+    }
+
+    section.about p {
+      font-size: 1.1rem;
+      max-width: 800px;
+      margin: auto;
+      line-height: 1.6;
+      color: #555;
+    }
+
+    #controls {
+      position: absolute;
+      top: 90px;
+      left: 20px;
+      z-index: 999;
+      background: white;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    #controls button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    #controls button:hover {
+      background-color: #0056b3;
+    }
+
+    #map {
+      height: 80vh;
+      width: 100%;
+    }
+
+    footer {
+      background: #222;
+      color: #bbb;
+      text-align: center;
+      padding: 1rem;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+  <header>🧠 Smart Route Planner</header>
+
+  <section class="about">
+    <h2>What is Smart Routing?</h2>
+    <p>
+      This feature helps users plan safe and efficient routes by avoiding danger zones
+      such as crime areas or accident-prone regions. Using real-time geo-mapping and Dijkstra's algorithm,
+      the system dynamically finds alternate paths to ensure road safety and smart navigation.
+    </p>
+  </section>
+
+  <div id="controls">
+    <button onclick="planSmartRoute()">🚗 Plan Smart Route</button>
+  </div>
+
+  <div id="map"></div>
+
+  <footer>
+    &copy; <span id="year"></span> Smart Routing Project | Made with ❤️ by Happy
+  </footer>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    document.getElementById("year").textContent = new Date().getFullYear();
+
+    const map = L.map('map').setView([28.61, 77.2], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: 'Map data © OpenStreetMap contributors'
+    }).addTo(map);
+
+    const nodes = {
+      A: [28.61, 77.2],
+      B: [28.615, 77.21],
+      C: [28.62, 77.22],
+      D: [28.625, 77.205],
+      E: [28.63, 77.215]
+    };
+
+    const edges = {
+      A: [{ to: 'B', dist: 1 }, { to: 'C', dist: 3 }],
+      B: [{ to: 'D', dist: 1 }],
+      C: [{ to: 'D', dist: 1 }],
+      D: [{ to: 'E', dist: 2 }],
+      E: []
+    };
+
+    // Red Zone
+    const redZone = L.circle([28.622, 77.215], {
+      radius: 700,
+      color: 'red',
+      fillColor: '#f03',
+      fillOpacity: 0.5
+    }).addTo(map);
+
+    // Show all nodes
+    for (let key in nodes) {
+      L.circleMarker(nodes[key], {
+        radius: 7,
+        color: 'black',
+        fillColor: '#00cc66',
+        fillOpacity: 1
+      }).addTo(map).bindTooltip(key, { permanent: true });
+    }
+
+    function isInRedZone(lat, lng) {
+      const dist = map.distance([lat, lng], redZone.getLatLng());
+      return dist < redZone.getRadius();
+    }
+
+    function dijkstra(start, end) {
+      const dist = {}, prev = {}, visited = new Set(), pq = [];
+      for (let n in nodes) dist[n] = Infinity;
+      dist[start] = 0;
+      pq.push({ node: start, cost: 0 });
+
+      while (pq.length) {
+        pq.sort((a, b) => a.cost - b.cost);
+        const { node } = pq.shift();
+        if (visited.has(node)) continue;
+        visited.add(node);
+
+        for (let edge of edges[node]) {
+          const [lat, lng] = nodes[edge.to];
+          if (isInRedZone(lat, lng)) continue;
+
+          const newDist = dist[node] + edge.dist;
+          if (newDist < dist[edge.to]) {
+            dist[edge.to] = newDist;
+            prev[edge.to] = node;
+            pq.push({ node: edge.to, cost: newDist });
+          }
+        }
+      }
+
+      const path = [];
+      let curr = end;
+      while (curr) {
+        path.unshift(curr);
+        curr = prev[curr];
+      }
+
+      return path.length > 1 ? path : null;
+    }
+
+    function planSmartRoute() {
+      const path = dijkstra('A', 'E');
+      if (!path) {
+        alert("⚠️ No safe route found. Danger zone blocks the way.");
+        return;
+      }
+
+      const latlngs = path.map(p => nodes[p]);
+      L.polyline(latlngs, { color: 'blue', weight: 5 }).addTo(map);
+
+      L.marker(latlngs[0], { title: "Start Point" }).addTo(map);
+      L.marker(latlngs[latlngs.length - 1], { title: "Destination" }).addTo(map);
+    }
+  </script>
+</body>
+</html>
